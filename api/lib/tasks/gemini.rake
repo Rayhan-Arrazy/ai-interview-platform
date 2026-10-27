@@ -91,7 +91,9 @@ namespace :gemini do
       f.adapter Faraday.default_adapter
     end
 
-    response = connection.get('/models') do |request|
+    # Relative path: Faraday merges it onto the /v1 base. An absolute
+    # "/models" would discard /v1, request https://host/models, and 404.
+    response = connection.get('models') do |request|
       request.headers['x-goog-api-key'] = Gemini::Config.api_key
     end
 

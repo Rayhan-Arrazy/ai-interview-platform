@@ -46,7 +46,7 @@ RSpec.describe Gemini::Config do
   describe '.by_role' do
     it 'returns the documented defaults for a known role' do
       with_env('GEMINI_TIMEOUT_PORTFOLIO' => nil, 'GEMINI_RETRY_MAX_PORTFOLIO' => nil) do
-        expect(described_class.by_role(:portfolio)).to include(model: 'gemini-3.8-flash', timeout: 180)
+        expect(described_class.by_role(:portfolio)).to include(model: 'gemini-3.6-flash', timeout: 180)
       end
     end
 

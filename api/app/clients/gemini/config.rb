@@ -11,8 +11,8 @@ module Gemini
   #   GEMINI_ENABLED        default true. false turns every AI feature off.
   #   GEMINI_MOCK_MODE      default auto (see +mock?+)
   #   GEMINI_LIVE_MODEL     default gemini-3.8-live
-  #   GEMINI_FLASH_MODEL    default gemini-3.8-flash
-  #   GEMINI_PRO_MODEL      default gemini-3.8-flash
+  #   GEMINI_FLASH_MODEL    default gemini-3.6-flash
+  #   GEMINI_PRO_MODEL      default gemini-3.6-flash
   #   GEMINI_TIMEOUT_<ROLE> default per role: 45/30/180 (see ROLE_DEFAULTS)
   #   GEMINI_TIMEOUT_OPEN_S default 10   (connection open timeout, seconds)
   #   GEMINI_MAX_RETRY_WAIT default 10   (cap for a single backoff sleep, seconds)
@@ -23,10 +23,15 @@ module Gemini
     #   gemini-2.0-flash-live-001        shut down 2025-12-09
     #   gemini-3.1-flash-live-preview    shutdown 2026-11-17
     # Source: https://ai.google.dev/gemini-api/docs/deprecations
+    #
+    # gemini-3.8-flash is a current, documented id, but on 2026-10-27 it
+    # returned only timeouts and HTTP 503 UNAVAILABLE for this key while
+    # gemini-3.6-flash answered in ~4s. Ship the model that works, keep the
+    # id overridable, and revisit when 3.8 capacity lands.
     MODELS = {
       live:  { env: 'GEMINI_LIVE_MODEL',  default: 'gemini-3.8-live' },
-      flash: { env: 'GEMINI_FLASH_MODEL', default: 'gemini-3.8-flash' },
-      pro:   { env: 'GEMINI_PRO_MODEL',   default: 'gemini-3.8-flash' }
+      flash: { env: 'GEMINI_FLASH_MODEL', default: 'gemini-3.6-flash' },
+      pro:   { env: 'GEMINI_PRO_MODEL',   default: 'gemini-3.6-flash' }
     }.freeze
 
     # One vocabulary for callers: a call-site role maps to a model, a timeout

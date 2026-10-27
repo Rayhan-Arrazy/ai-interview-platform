@@ -25,8 +25,8 @@ Fill in the required values in `config/application.yml`:
 | `GEMINI_ENABLED` | `true` (default) or `false`. `false` refuses every AI call instead of silently doing nothing |
 | `GEMINI_MOCK_MODE` | `true` forces the mock client (offline development, no cost). Defaults to on in the test suite and whenever no key is set outside production/staging |
 | `GEMINI_LIVE_MODEL` | Optional. Default `gemini-3.8-live` (WebSocket interview) |
-| `GEMINI_FLASH_MODEL` | Optional. Default `gemini-3.8-flash` (coverage analysis, fit/gap narratives, checks) |
-| `GEMINI_PRO_MODEL` | Optional. Default `gemini-3.8-flash` (portfolio generation) |
+| `GEMINI_FLASH_MODEL` | Optional. Default `gemini-3.6-flash` (coverage analysis, fit/gap narratives, checks) |
+| `GEMINI_PRO_MODEL` | Optional. Default `gemini-3.6-flash` (portfolio generation) |
 | `REDIS_URL` | e.g. `redis://localhost:6379/1` |
 | `ALLOWED_ORIGINS` | CORS origin for the frontend, e.g. `http://localhost:5173` |
 | `APP_BASE_URL` | Backend base URL, e.g. `http://localhost:3001` |

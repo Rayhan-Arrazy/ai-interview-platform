@@ -30,12 +30,14 @@ GEMINI_ENABLED: "true"
 
 # Model ids. Leave unset to use the shipped defaults:
 #   live  = gemini-3.8-live
-#   flash = gemini-3.8-flash   (coverage analysis, fit/gap narratives, checks)
-#   pro   = gemini-3.8-flash   (portfolio generation — pre-3.5 "pro" ids are gone)
+#   flash = gemini-3.6-flash   (coverage analysis, fit/gap narratives, checks)
+#   pro   = gemini-3.6-flash   (portfolio generation — pre-3.5 "pro" ids are gone)
+# gemini-3.8-flash is a valid current id but returned only timeouts and HTTP 503
+# for new keys on 2026-10-27, so the default stays on 3.6 until capacity lands.
 # Only set these if you need to pin a different, currently-available model.
 # GEMINI_LIVE_MODEL: "gemini-3.8-live"
-# GEMINI_FLASH_MODEL: "gemini-3.8-flash"
-# GEMINI_PRO_MODEL: "gemini-3.8-flash"
+# GEMINI_FLASH_MODEL: "gemini-3.6-flash"
+# GEMINI_PRO_MODEL: "gemini-3.6-flash"
 
 # Per-call tuning (seconds / attempt counts). Defaults are set per role.
 # GEMINI_TIMEOUT_ANALYSIS: "45"
