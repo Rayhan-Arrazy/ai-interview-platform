@@ -36,8 +36,12 @@ module Gemini
       on_resumption_token_update: nil
     )
       @system_prompt = system_prompt
-      @api_key = api_key || ENV.fetch('GEMINI_API_KEY')
-      @model = model || ENV.fetch('GEMINI_LIVE_MODEL', 'gemini-3.1-flash-live-preview')
+      @api_key = api_key.presence || Config.api_key
+      if @api_key.nil?
+        raise Errors::NotConfiguredError,
+              'GEMINI_API_KEY is not set — a live interview needs a real Gemini connection'
+      end
+      @model = model.presence || Config.model(:live)
       @voice = voice
       @resumption_token = nil
       @connected = false
