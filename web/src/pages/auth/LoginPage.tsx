@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useSetAtom } from "jotai";
 import { authAtom, saveToken } from "@/stores/authAtom";
 import { authApi } from "@/services/auth";
+import { roleFromToken } from "@/lib/jwt";
+import { homePathForRole } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,10 +24,11 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await authApi.login({ email, password });
-      const token = res.data.token;
-      saveToken(token);
-      setAuth({ token });
-      navigate("/assessments");
+      const { token, user } = res.data;
+      const role = user?.role ?? roleFromToken(token);
+      saveToken(token, user?.email);
+      setAuth({ token, role, email: user?.email ?? null });
+      navigate(homePathForRole(role));
     } catch {
       setError("Invalid email or password.");
     } finally {
