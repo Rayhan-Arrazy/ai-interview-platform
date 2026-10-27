@@ -182,7 +182,33 @@ export type InterviewState =
   | "reconnecting"
   | "draining_audio"
   | "ending"
-  | "complete";
+  | "complete"
+  | "failed";
+
+/**
+ * Why the interview left the flow without a server-confirmed completion.
+ * Each kind maps to a candidate-facing screen in InterviewPage — never to raw
+ * API/stack-trace text.
+ */
+export type InterviewExitKind =
+  /** Invite token missing, unknown, expired or revoked. */
+  | "link_invalid"
+  /** Backend unreachable / 5xx while loading the session. */
+  | "load_failed"
+  /** WebSocket reconnect budget exhausted before the session ended. */
+  | "connection_lost"
+  /** Backend sent an unrecoverable error frame. */
+  | "server_error"
+  /** We could not tell the backend the interview ended. */
+  | "submit_failed";
+
+export interface InterviewExit {
+  kind: InterviewExitKind;
+  /** Optional candidate-facing detail. Never contains raw exception text. */
+  message?: string;
+  /** Whether offering a "Try again" button makes sense for this kind. */
+  retryable: boolean;
+}
 
 export type InterviewSpeaker = "ai" | "candidate" | null;
 

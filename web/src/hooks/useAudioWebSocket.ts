@@ -10,6 +10,12 @@ interface UseAudioWebSocketOptions {
   onStateChange: (state: InterviewState) => void;
   onSpeakerChange: (speaker: InterviewSpeaker) => void;
   onReconnected?: () => void;
+  /**
+   * Called instead of onStateChange("complete") whenever the interview ends
+   * WITHOUT server confirmation (reconnect budget exhausted, unrecoverable
+   * error frame). Callers must never render a success screen from this.
+   */
+  onFailure?: (info: { reason: "connection_lost" | "server_error"; message?: string }) => void;
 }
 
 const RECONNECT_DELAYS = [1000, 2000, 4000];
@@ -22,6 +28,7 @@ export function useAudioWebSocket({
   onStateChange,
   onSpeakerChange,
   onReconnected,
+  onFailure,
 }: UseAudioWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -103,7 +110,13 @@ export function useAudioWebSocket({
               onStateChange("complete");
               break;
             case "error":
-              if (!msg.recoverable) onStateChange("complete");
+              // An unrecoverable error frame means the backend has already
+              // decided this session cannot continue. There is nothing to
+              // return to — hand off to the failure screen, never success.
+              if (!msg.recoverable) {
+                reconnectAttemptsRef.current = RECONNECT_DELAYS.length; // suppress reconnect
+                onFailure?.({ reason: "server_error", message: msg.message ?? msg.reason });
+              }
               break;
           }
         } catch {
@@ -127,10 +140,13 @@ export function useAudioWebSocket({
           connect();
         }, RECONNECT_DELAYS[attempt]);
       } else {
-        onStateChange("complete");
+        // Reconnect budget exhausted. The interview is NOT complete — we never
+        // received a session_ended frame from the backend. Report failure so
+        // the UI can tell the candidate the truth.
+        onFailure?.({ reason: "connection_lost" });
       }
     };
-  }, [sessionId, token, onAudioChunk, onTranscript, onStateChange, onSpeakerChange]);
+  }, [sessionId, token, onAudioChunk, onTranscript, onStateChange, onSpeakerChange, onReconnected, onFailure]);
 
   const send = useCallback((buffer: ArrayBuffer) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -138,16 +154,25 @@ export function useAudioWebSocket({
     }
   }, []);
 
-  const sendJson = useCallback((payload: object) => {
+  /** Returns true only if the frame was actually handed to an open socket. */
+  const sendJson = useCallback((payload: object): boolean => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(payload));
+      return true;
     }
+    return false;
   }, []);
 
   const disconnect = useCallback(() => {
     if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
     reconnectAttemptsRef.current = RECONNECT_DELAYS.length; // prevent reconnect
     wsRef.current?.close();
+  }, []);
+
+  /** Lets an explicit user-driven retry start a fresh reconnect budget. */
+  const resetReconnectBudget = useCallback(() => {
+    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+    reconnectAttemptsRef.current = 0;
   }, []);
 
   useEffect(() => {
@@ -157,5 +182,5 @@ export function useAudioWebSocket({
     };
   }, []);
 
-  return { connect, send, sendJson, disconnect, connectionState };
+  return { connect, send, sendJson, disconnect, resetReconnectBudget, connectionState };
 }
