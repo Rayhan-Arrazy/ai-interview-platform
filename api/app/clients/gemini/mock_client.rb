@@ -36,9 +36,9 @@ module Gemini
 
       payload =
         case prompt
-        when /#{Regexp.escape(PORTFOLIO_MARKER)}/n then portfolio_fixture(prompt)
-        when /#{Regexp.escape(NARRATIVE_MARKER)}/n then narrative_fixture
-        when /#{Regexp.escape(ANALYSIS_MARKER)}/n  then analysis_fixture
+        when /#{Regexp.escape(PORTFOLIO_MARKER)}/ then portfolio_fixture(prompt)
+        when /#{Regexp.escape(NARRATIVE_MARKER)}/ then narrative_fixture
+        when /#{Regexp.escape(ANALYSIS_MARKER)}/  then analysis_fixture
         else generic_fixture
         end
 
@@ -100,7 +100,7 @@ module Gemini
         'level'              => [[level, 1].max, 5].min,
         'confidence'         => confidence,
         'evidence'           => [
-          "(mock) #{label} was discussed during this sample interview — set GEMINI_MOCK_MODE=false " \
+          "(mock) #{label} was discussed during this sample interview â€” set GEMINI_MOCK_MODE=false " \
           'to call the real model.'
         ],
         'competency_summary' => "(mock) Coverage state #{state.presence || 'not_yet'} with #{probe_count} " \

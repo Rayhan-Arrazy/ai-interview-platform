@@ -105,6 +105,24 @@ Runs on **port 5173** by default.
 
 ---
 
+## 8. Run the tests
+
+The suite needs a PostgreSQL instance; point it at any throwaway database:
+
+```bash
+docker run -d --name ai-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=rakamin_test -p 5433:5432 postgres:15-alpine
+export DB_HOST=localhost DB_PORT=5433 DB_USERNAME=postgres DB_PASSWORD=postgres
+
+bundle exec rails db:test:prepare   # loads db/schema.rb into rakamin_test
+bundle exec rspec
+```
+
+Gemini calls are mocked in the test environment, so no `GEMINI_API_KEY` is
+required. `bundle exec rake gemini:check` is the smoke test for the client
+wiring itself (mock/disabled paths exit non-zero on failure).
+
+---
+
 ## All services at a glance
 
 | Service | Command | Port |
