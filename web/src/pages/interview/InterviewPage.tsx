@@ -20,7 +20,7 @@ import { useAudioCapture } from "@/hooks/useAudioCapture";
 import { useAudioPlayback } from "@/hooks/useAudioPlayback";
 import { useAudioWebSocket } from "@/hooks/useAudioWebSocket";
 import { sessionsApi } from "@/services/sessions";
-import HardwareCheck from "@/components/HardwareCheck";
+import SystemCheckScreen from "@/components/SystemCheckScreen";
 import { AlertTriangle, CheckCircle, Mic, MicOff, RotateCw } from "lucide-react";
 import type {
   CandidateInfo,
@@ -468,7 +468,7 @@ export default function InterviewPage() {
               <p>• The session will last up to {candidateInfo?.time_limit_min ?? "—"} minutes.</p>
               <p>• Your mic will be active throughout. You can end anytime.</p>
             </div>
-            <HardwareCheck onStart={() => { setHardwareCheckDone(true); startInterview(); }} />
+            <SystemCheckScreen onStart={() => { setHardwareCheckDone(true); void startInterview(); }} />
           </div>
         ) : (
           <div className="space-y-4">
