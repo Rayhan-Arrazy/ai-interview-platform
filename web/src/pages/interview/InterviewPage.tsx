@@ -135,6 +135,10 @@ export default function InterviewPage() {
   const muteRef = useRef<(() => void) | null>(null);
   const unmuteRef = useRef<(() => void) | null>(null);
 
+  const { playChunk, stop: stopPlayback, scheduleAfterPlayback, waitForDrain, cancelDrain } = useAudioPlayback();
+  const audioCompleteCalledRef = useRef(false);
+  const audioCompleteSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleStateChange = useCallback(
     (state: InterviewState) => {
       setInterviewState(state);
@@ -197,9 +201,6 @@ export default function InterviewPage() {
     setTranscript((prev) => [...prev.slice(-9), turn]); // keep last 10
   }, []);
 
-  const { playChunk, stop: stopPlayback, scheduleAfterPlayback, waitForDrain, cancelDrain } = useAudioPlayback();
-  const audioCompleteCalledRef = useRef(false);
-  const audioCompleteSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const AUDIO_COMPLETE_MAX_ATTEMPTS = 5;
 
