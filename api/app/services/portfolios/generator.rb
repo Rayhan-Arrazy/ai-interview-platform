@@ -5,6 +5,12 @@ module Portfolios
   # and final coverage map using Gemini Pro.
   # Runs post-session as a background job.
   class Generator
+    # A run that has not reported back within this window is treated as
+    # dead: the longest HTTP budget (180s + one retry with backoff) stays
+    # well under it, while a worker that was SIGKILLed stops blocking the
+    # portfolio forever.
+    STALE_AFTER = 15.minutes
+
     def initialize(session:, gemini_client: nil)
       @session = session
       @gemini_client = gemini_client || Gemini.client(:portfolio)
@@ -17,7 +23,9 @@ module Portfolios
         generation_status: 'pending'
       )
 
-      portfolio.update!(generation_status: 'generating')
+      # Duplicate Sidekiq deliveries must not run the model twice: the first
+      # worker owns the row until it finishes, fails, or goes stale.
+      return portfolio unless claim!(portfolio)
 
       prompt   = build_prompt
       response = @gemini_client.generate_content(prompt, temperature: 0.2)
@@ -31,12 +39,39 @@ module Portfolios
       # Never let a failure message reach an assessor unfiltered: it is
       # stored and rendered, so it carries class/structure only.
       safe_error = Gemini::Config.safe_message(e)
-      portfolio&.update(generation_status: 'failed', generation_error: safe_error)
+      # update_columns: this must land even when the in-memory row already
+      # holds 'failed', where a plain update would find no dirty attribute
+      # and write nothing.
+      portfolio&.update_columns(generation_status: 'failed', generation_error: safe_error)
       Rails.logger.error("[N10] Portfolio generation failed for session #{@session.id}: #{safe_error}")
       raise
     end
 
     private
+
+    # Atomic claim: one UPDATE with a WHERE so two workers racing on the
+    # same portfolio can never both win. Returns false when another run
+    # still holds a fresh claim.
+    def claim!(portfolio)
+      now = Time.current
+      claimable = Portfolio.where(id: portfolio.id).where(
+        "generation_status <> 'generating' OR generation_started_at IS NULL OR generation_started_at < ?",
+        STALE_AFTER.ago
+      )
+
+      claimed = claimable.update_all(generation_status: 'generating', generation_started_at: now)
+      if claimed.zero?
+        Rails.logger.info("[N10] Portfolio generation already in progress for session #{@session.id} — skipping duplicate run")
+        return false
+      end
+
+      # update_all bypasses this instance, so re-read it. Without the reload
+      # the row is left with stale dirty attributes and a later
+      # update(generation_status: 'failed') would compare against the old
+      # value, drop the change, and silently leave the row on 'generating'.
+      portfolio.reload
+      true
+    end
 
     def build_prompt
       assessment       = @session.assessment
