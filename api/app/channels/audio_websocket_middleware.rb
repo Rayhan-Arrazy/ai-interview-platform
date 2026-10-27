@@ -4,7 +4,7 @@ require 'faye/websocket'
 
 # Rack middleware that proxies a WebSocket at /ws/sessions/:id/audio between the browser (16kHz PCM)
 # and Gemini Live (24kHz PCM). Audio is buffered in a ring buffer for reconnection replay.
-class AudioWebSocketMiddleware
+class AudioWebsocketMiddleware
   AUDIO_PATH_PATTERN = %r{\A/ws/sessions/([^/]+)/audio\z}
 
   MAX_RECONNECT_ATTEMPTS = 3
@@ -102,6 +102,18 @@ class AudioWebSocketMiddleware
   def connect_to_gemini(browser_ws, state)
     session = state.session
 
+    # A live interview needs a working Gemini connection. If AI is off, the
+    # key is missing, or the deployment runs on the mock client, say so in a
+    # generic, candidate-safe message instead of opening a socket that dies.
+    unless live_ai_available?
+      send_json(browser_ws, type: 'error', code: 'ai_unavailable',
+                            message: 'The interview assistant is unavailable right now. ' \
+                                     'Please contact your interviewer to reschedule.',
+                            recoverable: false)
+      browser_ws.close
+      return
+    end
+
     ensure_system_prompt(session)
 
     unless session.assessment.system_prompt.present?
@@ -122,6 +134,10 @@ class AudioWebSocketMiddleware
 
     build_gemini_client(browser_ws, state)
     state.gemini_client.connect(resumption_handle: session.gemini_resumption_token.presence)
+  end
+
+  def live_ai_available?
+    Gemini::Config.enabled? && Gemini::Config.configured? && !Gemini::Config.mock?
   end
 
   def ensure_system_prompt(session)
