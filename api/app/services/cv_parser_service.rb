@@ -9,15 +9,22 @@ class CvParserService
     return '' unless attachment&.attached?
 
     attachment.open do |tempfile|
-      if attachment.content_type == 'application/pdf'
+      if pdf?(attachment)
         parse_pdf(tempfile.path)
       else
-        File.read(tempfile.path, encoding: 'UTF-8')
+        File.read(tempfile.path, encoding: 'UTF-8', invalid: :replace, undef: :replace)
       end
     end
   rescue StandardError => e
     Rails.logger.error("[CvParserService] Failed to parse CV: #{e.class}: #{e.message}")
     ''
+  end
+
+  def self.pdf?(attachment)
+    content_type = attachment.content_type.to_s.downcase
+    filename     = attachment.filename.to_s.downcase
+
+    content_type.include?('pdf') || filename.end_with?('.pdf')
   end
 
   def self.parse_pdf(file_path)

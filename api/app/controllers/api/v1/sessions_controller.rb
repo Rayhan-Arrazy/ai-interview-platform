@@ -166,12 +166,16 @@ module Api
       def upload_cv
         session = Session.unscoped.find_by(invite_token: params[:token])
         return json_error("Invalid or expired invite token", :not_found) unless session
-        return json_error("Cannot upload CV to an active or ended session", :unprocessable_entity) unless session.pending?
+        return json_error("Cannot upload CV to an ended session", :unprocessable_entity) if session.ended?
 
         file = params[:cv]
         return json_error("CV file is required", :bad_request) unless file.present?
 
-        session.cv.attach(file)
+        session.cv.attach(
+          io:           file,
+          filename:     file.original_filename,
+          content_type: file.content_type.presence || 'application/octet-stream'
+        )
         extracted_text = CvParserService.extract_text(session.cv)
         session.update!(cv_text: extracted_text)
 
@@ -181,6 +185,9 @@ module Api
           text_length: extracted_text.length,
           preview: extracted_text.truncate(200)
         )
+      rescue StandardError => e
+        Rails.logger.error("[upload_cv] #{e.class}: #{e.message}")
+        json_error("CV upload failed: #{e.message}", :unprocessable_entity)
       end
 
       private
