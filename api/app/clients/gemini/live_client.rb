@@ -3,6 +3,7 @@
 require 'faye/websocket'
 require 'json'
 require 'base64'
+require_relative 'web_socket_client'
 
 module Gemini
   # Manages a persistent WebSocket connection to Gemini Live API.
@@ -67,9 +68,8 @@ module Gemini
     # Opens the WebSocket and sends setup; resumes a prior session if a handle is provided.
     def connect(resumption_handle: nil)
       @setup_complete = false
-      @ws = Faye::WebSocket::Client.new(
+      @ws = WebSocketClient.new(
         GEMINI_WS_URL,
-        nil,
         headers: { 'x-goog-api-key' => @api_key }
       )
 
@@ -78,6 +78,7 @@ module Gemini
       @ws.on(:close)   { |event|  handle_ws_close(event) }
       @ws.on(:error)   { |event|  handle_ws_error(event) }
 
+      @ws.connect
       @ws
     end
 
