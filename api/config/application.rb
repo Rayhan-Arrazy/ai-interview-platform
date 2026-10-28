@@ -29,7 +29,6 @@ module AiInterview
       #{config.root}/app/lib
       #{config.root}/app/middlewares
       #{config.root}/app/services
-      #{config.root}/app/channels
       #{config.root}/app/clients
       #{config.root}/app/workers
     ]
