@@ -8,8 +8,11 @@ export const WS_URL = WS_BASE_URL;
 
 export const api = axios.create({
   baseURL: BASE_URL,
+  // No default Content-Type on purpose. axios infers it per request: it sets
+  // application/json for plain objects, and leaves FormData untouched so the
+  // browser can add its own multipart boundary. Declaring application/json here
+  // made axios serialize CV uploads to JSON ({"cv":{}}), silently dropping the file.
   headers: {
-    "Content-Type": "application/json",
     Accept: "application/json",
   },
 });
