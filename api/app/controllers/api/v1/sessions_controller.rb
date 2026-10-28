@@ -7,7 +7,7 @@ module Api
       # the URL — a capability the candidate holds instead of a JWT. They must also
       # skip the tenant filter: a candidate's browser has no JWT to read a `scheme`
       # claim from, so tenant resolution would always fail before the action ran.
-      authorize_auth_token! :assessor, except: %i[candidate_info audio_complete upload_cv mine]
+      authorize_auth_token! :assessor, except: %i[candidate_info audio_complete mine]
       # The candidate dashboard is the one authenticated action here: a signed-in
       # candidate (role "user") lists their own interviews, so it accepts any role.
       authorize_auth_token! :any, only: %i[mine]
