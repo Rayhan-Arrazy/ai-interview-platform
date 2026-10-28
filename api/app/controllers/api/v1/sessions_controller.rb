@@ -156,7 +156,30 @@ module Api
           session_id:      session.id,
           role_title:      assessment.name,
           time_limit_min:  assessment.time_limit_min,
-          session_status:  session.status
+          session_status:  session.status,
+          has_cv:          session.cv_text.present?,
+          cv_filename:     session.cv.attached? ? session.cv.filename.to_s : nil
+        )
+      end
+
+      # POST /sessions/:token/cv — upload CV before interview starts
+      def upload_cv
+        session = Session.unscoped.find_by(invite_token: params[:token])
+        return json_error("Invalid or expired invite token", :not_found) unless session
+        return json_error("Cannot upload CV to an active or ended session", :unprocessable_entity) unless session.pending?
+
+        file = params[:cv]
+        return json_error("CV file is required", :bad_request) unless file.present?
+
+        session.cv.attach(file)
+        extracted_text = CvParserService.extract_text(session.cv)
+        session.update!(cv_text: extracted_text)
+
+        json_response(
+          success: true,
+          filename: session.cv.filename.to_s,
+          text_length: extracted_text.length,
+          preview: extracted_text.truncate(200)
         )
       end
 

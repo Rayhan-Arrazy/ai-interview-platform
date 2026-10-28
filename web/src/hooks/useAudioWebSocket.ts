@@ -9,6 +9,7 @@ interface UseAudioWebSocketOptions {
   onTranscript: (turn: Pick<TranscriptTurn, "speaker" | "text">) => void;
   onStateChange: (state: InterviewState) => void;
   onSpeakerChange: (speaker: InterviewSpeaker) => void;
+  onStopPlayback?: () => void;
   onReconnected?: () => void;
   /**
    * Called instead of onStateChange("complete") whenever the interview ends
@@ -27,6 +28,7 @@ export function useAudioWebSocket({
   onTranscript,
   onStateChange,
   onSpeakerChange,
+  onStopPlayback,
   onReconnected,
   onFailure,
 }: UseAudioWebSocketOptions) {
@@ -93,6 +95,11 @@ export function useAudioWebSocket({
                   onSpeakerChange("ai");
                 }
               }
+              break;
+            case "stop_playback":
+              aiSpeakingSignalled = false;
+              onSpeakerChange("candidate");
+              onStopPlayback?.();
               break;
             case "preparing_to_end":
               onStateChange("draining_audio");

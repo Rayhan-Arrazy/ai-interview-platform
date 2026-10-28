@@ -164,6 +164,8 @@ export interface CandidateInfo {
   role_title: string;
   time_limit_min: number;
   session_status: string;
+  has_cv?: boolean;
+  cv_filename?: string | null;
 }
 
 export interface PaginationMeta {
@@ -177,6 +179,7 @@ export interface PaginationMeta {
 export type InterviewState =
   | "idle"
   | "hardware_check"
+  | "cv_upload"
   | "connecting"
   | "active"
   | "reconnecting"
@@ -221,6 +224,7 @@ export interface WsControlMessage {
     | "reconnecting"
     | "reconnected"
     | "speaker_changed"
+    | "stop_playback"
     | "preparing_to_end"
     | "error";
   speaker?: "candidate" | "ai";

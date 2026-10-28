@@ -6,6 +6,7 @@ require 'rails'
 require 'active_model/railtie'
 require 'active_record/railtie'
 require 'action_controller/railtie'
+require 'active_storage/engine'
 
 require_relative '../app/middlewares/application_middleware'
 require_relative '../app/middlewares/tenant_resolver_middleware'
@@ -15,6 +16,9 @@ Bundler.require(*Rails.groups)
 module AiInterview
   class Application < Rails::Application
     config.load_defaults 7.0
+
+    # ActiveStorage
+    config.active_storage.service = :local
 
     # API-only mode
     config.api_only = true

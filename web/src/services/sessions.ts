@@ -29,6 +29,16 @@ export const sessionsApi = {
   getCandidateInfo: (token: string) =>
     api.get<CandidateInfo>(`/sessions/${token}/candidate`),
 
+  uploadCv: (token: string, file: File) => {
+    const formData = new FormData();
+    formData.append("cv", file);
+    return api.post<{ success: boolean; filename: string; text_length: number; preview: string }>(
+      `/sessions/${token}/cv`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+  },
+
   audioComplete: (token: string, reason?: "manual_candidate") =>
     api.post<{ ended: boolean; message: string }>(`/sessions/${token}/audio_complete`, null, {
       params: reason ? { reason } : undefined,

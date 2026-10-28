@@ -33,10 +33,11 @@ gem 'faye-websocket'
 gem 'faraday', '~> 2.0'
 gem 'faraday-retry'
 
-# PDF generation
+# PDF generation & parsing
 gem 'matrix' # required by prawn on Ruby >= 3.1
 gem 'prawn', '~> 2.4'
 gem 'prawn-table', '~> 0.2'
+gem 'pdf-reader', '~> 2.11'
 
 # Misc
 gem 'bootsnap', require: false

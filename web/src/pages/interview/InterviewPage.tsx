@@ -21,6 +21,8 @@ import { useAudioPlayback } from "@/hooks/useAudioPlayback";
 import { useAudioWebSocket } from "@/hooks/useAudioWebSocket";
 import { sessionsApi } from "@/services/sessions";
 import SystemCheckScreen from "@/components/SystemCheckScreen";
+import { BackButton } from "@/components/common/BackButton";
+import CvUploadScreen from "@/components/interview/CvUploadScreen";
 import { AlertTriangle, CheckCircle, Mic, MicOff, RotateCw } from "lucide-react";
 import type {
   CandidateInfo,
@@ -301,6 +303,7 @@ export default function InterviewPage() {
     onTranscript: handleTranscript,
     onStateChange: handleStateChange,
     onSpeakerChange: handleSpeakerChange,
+    onStopPlayback: stopPlayback,
     onReconnected: handleReconnected,
     onFailure: handleFailure,
   });
@@ -469,21 +472,35 @@ export default function InterviewPage() {
               <p>• The session will last up to {candidateInfo?.time_limit_min ?? "—"} minutes.</p>
               <p>• Your mic will be active throughout. You can end anytime.</p>
             </div>
-            <SystemCheckScreen onStart={() => { setHardwareCheckDone(true); void startInterview(); }} />
+            <SystemCheckScreen onStart={() => { setHardwareCheckDone(true); setInterviewState("cv_upload"); }} />
           </div>
         ) : (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2.5">
               <CheckCircle className="h-4 w-4 shrink-0" />
-              <span>Hardware checks passed. You're ready to start.</span>
+              <span>Hardware checks passed. You're ready to proceed.</span>
             </div>
-            <Button className="w-full" size="lg" onClick={startInterview}>
+            <Button className="w-full" size="lg" onClick={() => setInterviewState("cv_upload")}>
               <Mic className="h-4 w-4 mr-2" />
-              Start Interview
+              Continue to CV Step
             </Button>
           </div>
         )}
       </div>
+    );
+  }
+
+  // ── State A.5: CV Upload Step ───────────────────────────────────────────
+  if (interviewState === "cv_upload") {
+    return (
+      <CvUploadScreen
+        token={token || ""}
+        hasExistingCv={candidateInfo?.has_cv}
+        existingFilename={candidateInfo?.cv_filename}
+        onSuccess={() => void startInterview()}
+        onSkip={() => void startInterview()}
+        onBack={() => setInterviewState("idle")}
+      />
     );
   }
 
@@ -514,29 +531,34 @@ export default function InterviewPage() {
     const retryLabel =
       kind === "connection_lost" ? "Reconnect" : "Try again";
 
+    const userRole = localStorage.getItem("user_role");
+    const isAssessor = userRole === "admin" || userRole === "assessor";
+    const dashboardTarget = isAssessor ? "/assessments" : "/candidate";
+
     return (
       <div
-        className="max-w-xl mx-auto px-4 py-16 text-center space-y-5"
+        className="max-w-xl mx-auto px-4 py-16 text-center space-y-6"
         role="alert"
         aria-live="assertive"
       >
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-700">
-          <AlertTriangle className="h-6 w-6" aria-hidden="true" />
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 border border-amber-200 text-amber-600 shadow-sm">
+          <AlertTriangle className="h-7 w-7" aria-hidden="true" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold">{titles[kind]}</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">{titles[kind]}</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
             {exit?.message ?? notes[kind]}
           </p>
-          <p className="text-sm text-muted-foreground">{notes[kind]}</p>
+          <p className="text-xs text-muted-foreground">{notes[kind]}</p>
         </div>
 
-        <div className="flex flex-col gap-2 pt-1">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
           {exit?.retryable && (
             <Button
               size="lg"
               onClick={() => void retryFailedExit()}
               disabled={submitRetrying || loadingRetrying}
+              className="w-full sm:w-auto"
             >
               {submitRetrying || loadingRetrying ? (
                 <span className="inline-flex items-center gap-2">
@@ -548,9 +570,15 @@ export default function InterviewPage() {
               )}
             </Button>
           )}
-          <Button variant="outline" onClick={() => window.location.reload()}>
+          <Button variant="outline" size="lg" onClick={() => window.location.reload()} className="w-full sm:w-auto">
             Reload page
           </Button>
+          <BackButton
+            fallbackPath={dashboardTarget}
+            label="Return to Dashboard"
+            variant="ghost"
+            className="w-full sm:w-auto"
+          />
         </div>
 
         <p className="text-xs text-muted-foreground">
@@ -566,17 +594,41 @@ export default function InterviewPage() {
   // Only reachable after the backend confirmed the ending (session_ended frame,
   // a 2xx from audio_complete, or a session already marked ended on load).
   if (interviewState === "complete") {
+    const userRole = localStorage.getItem("user_role");
+    const isAssessor = userRole === "admin" || userRole === "assessor";
+    const dashboardTarget = isAssessor ? "/assessments" : "/candidate";
+    const dashboardLabel = isAssessor ? "Return to Assessment List" : "Return to Candidate Dashboard";
+
     return (
-      <div className="max-w-xl mx-auto px-4 py-16 text-center space-y-4">
-        <div className="text-4xl" aria-hidden="true">
-          ✅
+      <div className="max-w-xl mx-auto px-4 py-16 text-center space-y-6 animate-in fade-in duration-500">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 shadow-sm">
+          <CheckCircle className="h-8 w-8" aria-hidden="true" />
         </div>
-        <h2 className="text-xl font-semibold">Interview Complete</h2>
-        <p className="text-sm text-muted-foreground">
-          Your session has ended and your responses have been saved.
-          <br />
-          The hiring team will review them and follow up with you.
-        </p>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">Interview Complete</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
+            Your session has ended and your responses have been saved.
+            <br />
+            The hiring team will review them and follow up with you.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+          <Button
+            size="lg"
+            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+            onClick={() => window.location.assign(dashboardTarget)}
+          >
+            {dashboardLabel}
+          </Button>
+
+          <BackButton
+            fallbackPath={dashboardTarget}
+            label="Back to Previous Page"
+            variant="outline"
+            className="w-full sm:w-auto"
+          />
+        </div>
       </div>
     );
   }
