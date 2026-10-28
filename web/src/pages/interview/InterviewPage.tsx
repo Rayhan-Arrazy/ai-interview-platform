@@ -495,7 +495,10 @@ export default function InterviewPage() {
     return (
       <CvUploadScreen
         token={token || ""}
-        hasExistingCv={candidateInfo?.has_cv}
+        // "Ready" must mean usable: a stored but unparsed CV (e.g. a scanned PDF)
+        // would not personalize the interview, so treat it as not-yet-usable and
+        // let the candidate upload a text-based version instead.
+        hasExistingCv={candidateInfo?.has_cv_text ?? candidateInfo?.has_cv}
         existingFilename={candidateInfo?.cv_filename}
         onSuccess={() => void startInterview()}
         onSkip={() => void startInterview()}

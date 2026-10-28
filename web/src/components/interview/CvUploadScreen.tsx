@@ -12,6 +12,17 @@ import {
 } from "lucide-react";
 import { sessionsApi } from "@/services/sessions";
 
+/**
+ * The API reports failures as { errors: [{ status, message }] } (see Response#json_error),
+ * so read that shape first and keep the flatter { error } shape as a fallback.
+ */
+const apiErrorMessage = (err: unknown): string | undefined => {
+  const data = (err as { response?: { data?: unknown } })?.response?.data as
+    | { errors?: Array<{ message?: string }>; error?: string }
+    | undefined;
+  return data?.errors?.[0]?.message ?? data?.error;
+};
+
 interface CvUploadScreenProps {
   token: string;
   hasExistingCv?: boolean;
@@ -32,6 +43,7 @@ export const CvUploadScreen: React.FC<CvUploadScreenProps> = ({
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [uploaded, setUploaded] = useState(hasExistingCv);
   const [uploadedName, setUploadedName] = useState<string | null>(existingFilename || null);
   const [dragOver, setDragOver] = useState(false);
@@ -72,15 +84,22 @@ export const CvUploadScreen: React.FC<CvUploadScreenProps> = ({
 
     setUploading(true);
     setError(null);
+    setWarning(null);
 
     try {
       const res = await sessionsApi.uploadCv(token, file);
       setUploaded(true);
       setUploadedName(res.data.filename);
+      // The file is stored either way; this only warns that the résumé will not
+      // personalize the interview (e.g. a scanned/image-only PDF).
+      if (res.data.text_extracted === false) {
+        setWarning(
+          "We saved your CV but couldn't read any text from it. If it's a scan or image-only PDF, upload a text-based version for a more personalized interview — or continue as is."
+        );
+      }
       onSuccess();
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(message || "Failed to upload and parse CV. You can retry or proceed without it.");
+      setError(apiErrorMessage(err) || "Failed to upload and parse CV. You can retry or proceed without it.");
     } finally {
       setUploading(false);
     }
@@ -181,6 +200,13 @@ export const CvUploadScreen: React.FC<CvUploadScreenProps> = ({
         <div className="flex items-center gap-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 p-3.5 rounded-xl">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {warning && !error && (
+        <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 p-3.5 rounded-xl">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{warning}</span>
         </div>
       )}
 

@@ -32,11 +32,15 @@ export const sessionsApi = {
   uploadCv: (token: string, file: File) => {
     const formData = new FormData();
     formData.append("cv", file);
-    return api.post<{ success: boolean; filename: string; text_length: number; preview: string }>(
-      `/sessions/${token}/cv`,
-      formData,
-      { headers: { "Content-Type": "multipart/form-data" } }
-    );
+    // No explicit Content-Type: the browser must set multipart/form-data *with*
+    // its boundary, otherwise the API cannot parse the part and sees no file.
+    return api.post<{
+      success: boolean;
+      filename: string;
+      text_length: number;
+      text_extracted: boolean;
+      preview: string;
+    }>(`/sessions/${token}/cv`, formData);
   },
 
   audioComplete: (token: string, reason?: "manual_candidate") =>

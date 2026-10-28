@@ -3,8 +3,16 @@
 module Api
   module V1
     class SessionsController < ApiController
-      authorize_auth_token! :assessor, except: %i[candidate_info audio_complete]
-      skip_before_action :require_tenant!, only: %i[candidate_info audio_complete]
+      # Candidate-facing actions are authenticated by the invite token embedded in
+      # the URL — a capability the candidate holds instead of a JWT. They must also
+      # skip the tenant filter: a candidate's browser has no JWT to read a `scheme`
+      # claim from, so tenant resolution would always fail before the action ran.
+      authorize_auth_token! :assessor, except: %i[candidate_info audio_complete upload_cv]
+      skip_before_action :require_tenant!, only: %i[candidate_info audio_complete upload_cv]
+
+      MAX_CV_BYTES            = 5.megabytes
+      ALLOWED_CV_EXTENSIONS   = %w[.pdf .txt].freeze
+      ALLOWED_CV_CONTENT_TYPE = %w[application/pdf text/plain application/octet-stream].freeze
 
       before_action :set_session, only: %i[show end_session coverage transcript]
 
@@ -157,37 +165,52 @@ module Api
           role_title:      assessment.name,
           time_limit_min:  assessment.time_limit_min,
           session_status:  session.status,
-          has_cv:          session.cv_text.present?,
+          has_cv:          session.cv.attached? || session.cv_text.present?,
+          has_cv_text:     session.cv_text.present?,
           cv_filename:     session.cv.attached? ? session.cv.filename.to_s : nil
         )
       end
 
       # POST /sessions/:token/cv — upload CV before interview starts
+      #
+      # Candidate-facing: the invite token is the only credential, so this action is
+      # skipped by both the assessor JWT filter and the tenant filter (see the top of
+      # this class). The session row is loaded unscoped because no tenant is resolved.
       def upload_cv
         session = Session.unscoped.find_by(invite_token: params[:token])
         return json_error("Invalid or expired invite token", :not_found) unless session
-        return json_error("Cannot upload CV to an ended session", :unprocessable_entity) if session.ended?
+        return json_error("Cannot upload a CV to a session that has already ended", :unprocessable_entity) if session.ended?
 
         file = params[:cv]
-        return json_error("CV file is required", :bad_request) unless file.present?
+        unless file.respond_to?(:original_filename) && file.respond_to?(:read)
+          return json_error(
+            "CV file is required. Send it as multipart/form-data in the 'cv' field.",
+            :bad_request
+          )
+        end
 
-        session.cv.attach(
-          io:           file,
-          filename:     file.original_filename,
-          content_type: file.content_type.presence || 'application/octet-stream'
-        )
+        error = cv_validation_error(file)
+        return json_error(error, :unprocessable_entity) if error
+
+        # attach (not attach+purge) keeps the previous CV until the new blob is stored,
+        # so a failed re-upload never leaves the session without a résumé.
+        session.cv.attach(file)
         extracted_text = CvParserService.extract_text(session.cv)
         session.update!(cv_text: extracted_text)
 
         json_response(
-          success: true,
-          filename: session.cv.filename.to_s,
-          text_length: extracted_text.length,
-          preview: extracted_text.truncate(200)
+          success:        true,
+          filename:       session.cv.filename.to_s,
+          text_length:    extracted_text.length,
+          text_extracted: extracted_text.length.positive?,
+          preview:        extracted_text.truncate(200)
         )
+      rescue ActiveRecord::RecordInvalid => e
+        Rails.logger.error("[upload_cv] RecordInvalid: #{e.record.errors.full_messages.join(', ')}")
+        json_error("CV upload failed: #{e.record.errors.full_messages.first}", :unprocessable_entity)
       rescue StandardError => e
         Rails.logger.error("[upload_cv] #{e.class}: #{e.message}")
-        json_error("CV upload failed: #{e.message}", :unprocessable_entity)
+        json_error("CV upload failed. Please try a different file.", :unprocessable_entity)
       end
 
       private
@@ -196,6 +219,29 @@ module Api
         @session = Session.find(params[:id])
       rescue ActiveRecord::RecordNotFound
         json_error("Session not found", :not_found)
+      end
+
+      # Returns a human-readable reason the upload is unacceptable, or nil when it is fine.
+      # Validated here rather than only in the browser: the invite URL is a capability,
+      # so the file reaching this action is not guaranteed to have passed the UI checks.
+      def cv_validation_error(file)
+        filename     = file.original_filename.to_s
+        extension    = File.extname(filename).downcase
+        content_type = file.content_type.to_s.downcase
+
+        unless ALLOWED_CV_EXTENSIONS.include?(extension)
+          return "Only PDF and TXT files are supported."
+        end
+
+        if content_type.present? && !ALLOWED_CV_CONTENT_TYPE.include?(content_type)
+          return "Unsupported file type '#{content_type}'. Upload a PDF or TXT file."
+        end
+
+        size = file.size.to_i
+        return "CV file is empty." if size.zero?
+        return "CV file is too large. The maximum size is #{MAX_CV_BYTES / 1.megabyte}MB." if size > MAX_CV_BYTES
+
+        nil
       end
 
       def session_json(session)

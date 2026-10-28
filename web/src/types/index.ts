@@ -165,6 +165,7 @@ export interface CandidateInfo {
   time_limit_min: number;
   session_status: string;
   has_cv?: boolean;
+  has_cv_text?: boolean;
   cv_filename?: string | null;
 }
 

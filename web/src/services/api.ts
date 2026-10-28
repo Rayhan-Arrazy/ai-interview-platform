@@ -24,6 +24,13 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Candidate-facing endpoints authenticate with the invite token in the URL, never
+// with a JWT. A 401/403 from one of them means the upload/lookup itself failed —
+// not that the user's session expired — so it must not clear credentials or
+// redirect to the assessor login (that would throw the candidate out of the
+// interview they are in the middle of).
+const INVITE_TOKEN_ENDPOINT = /\/sessions\/[^/]+\/(candidate|cv|audio_complete)(?:[/?#]|$)/;
+
 // Unwrap backend envelope: { data: { ... } } → { ... }
 // On 401/403, clear stored credentials and redirect to login.
 api.interceptors.response.use(
@@ -36,7 +43,12 @@ api.interceptors.response.use(
   (error) => {
     const url: string = error.config?.url ?? "";
     const isAuthEndpoint = url.includes("/auth/login") || url.includes("/signup");
-    if (!isAuthEndpoint && (error.response?.status === 401 || error.response?.status === 403)) {
+    const isInviteTokenEndpoint = INVITE_TOKEN_ENDPOINT.test(url);
+    if (
+      !isAuthEndpoint &&
+      !isInviteTokenEndpoint &&
+      (error.response?.status === 401 || error.response?.status === 403)
+    ) {
       clearToken();
       window.location.href = "/login";
     }
