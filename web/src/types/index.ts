@@ -37,6 +37,7 @@ export interface Session {
   tenant_id?: number;
   candidate_id?: number;
   candidate_name?: string;
+  candidate_email?: string | null;
   invite_token: string;
   invite_url: string;
   status: "pending" | "active" | "ended";
@@ -167,6 +168,24 @@ export interface CandidateInfo {
   has_cv?: boolean;
   has_cv_text?: boolean;
   cv_filename?: string | null;
+}
+
+/** One row on the candidate dashboard (GET /candidate/sessions). */
+export interface CandidateSession {
+  id: number;
+  invite_token: string;
+  invite_url: string;
+  assessment_id: number;
+  role_title?: string | null;
+  time_limit_min?: number | null;
+  status: "pending" | "active" | "ended" | "failed";
+  end_reason?: string | null;
+  created_at?: string | null;
+  started_at?: string | null;
+  ended_at?: string | null;
+  duration_seconds?: number | null;
+  has_cv?: boolean;
+  has_report?: boolean;
 }
 
 export interface PaginationMeta {

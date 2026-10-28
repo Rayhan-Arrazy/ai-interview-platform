@@ -37,6 +37,9 @@ Rails.application.routes.draw do
       post 'sessions/:token/cv',             to: 'sessions#upload_cv'
       post 'sessions/:token/audio_complete', to: 'sessions#audio_complete'
 
+      # Candidate dashboard (JWT — a signed-in candidate's own interviews)
+      get  'candidate/sessions',             to: 'sessions#mine'
+
       # Portfolio skills overrides
       resources :portfolio_skills, only: [] do
         member do

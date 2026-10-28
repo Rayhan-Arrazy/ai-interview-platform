@@ -7,7 +7,10 @@ module Api
       # the URL — a capability the candidate holds instead of a JWT. They must also
       # skip the tenant filter: a candidate's browser has no JWT to read a `scheme`
       # claim from, so tenant resolution would always fail before the action ran.
-      authorize_auth_token! :assessor, except: %i[candidate_info audio_complete upload_cv]
+      authorize_auth_token! :assessor, except: %i[candidate_info audio_complete upload_cv mine]
+      # The candidate dashboard is the one authenticated action here: a signed-in
+      # candidate (role "user") lists their own interviews, so it accepts any role.
+      authorize_auth_token! :any, only: %i[mine]
       skip_before_action :require_tenant!, only: %i[candidate_info audio_complete upload_cv]
 
       MAX_CV_BYTES            = 5.megabytes
@@ -31,9 +34,10 @@ module Api
         assessment = Assessment.find(params[:assessment_id])
 
         session = assessment.sessions.new(
-          candidate_id:   params.dig(:session, :candidate_id),
-          candidate_name: params.dig(:session, :candidate_name).presence,
-          tenant_id:      current_tenant_id
+          candidate_id:    params.dig(:session, :candidate_id),
+          candidate_name:  params.dig(:session, :candidate_name).presence,
+          candidate_email: params.dig(:session, :candidate_email).presence,
+          tenant_id:       current_tenant_id
         )
 
         if session.save
@@ -143,6 +147,24 @@ module Api
         json_response(ended: true, message: "Session ended")
       end
 
+      # GET /api/v1/candidate/sessions — the signed-in candidate's own interviews
+      #
+      # Backs the candidate dashboard: upcoming (pending), in progress (active),
+      # completed (ended) and not-completed (failed) interviews, newest first.
+      # Scoped to the caller, so a candidate can never enumerate anyone else's.
+      def mine
+        user = User.find_by(id: current_user&.id)
+        return json_response(sessions: []) unless user
+
+        sessions = Session
+                   .for_candidate(user)
+                   .includes(:assessment, :portfolio)
+                   .with_attached_cv
+                   .order(created_at: :desc)
+
+        json_response(sessions: sessions.map { |session| candidate_session_json(session) })
+      end
+
       # GET /sessions/:token/candidate  — no JWT, invite token in URL
       def candidate_info
         session = Session.unscoped.find_by(invite_token: params[:token])
@@ -244,6 +266,28 @@ module Api
         nil
       end
 
+      # Dashboard projection: what a candidate needs to see, and nothing that
+      # belongs to the assessor view (no tenant_id, no internal ids beyond the
+      # assessment they are already interviewing for).
+      def candidate_session_json(session)
+        {
+          id:               session.id,
+          invite_token:     session.invite_token,
+          invite_url:       session.invite_url,
+          assessment_id:    session.assessment_id,
+          role_title:       session.assessment&.name,
+          time_limit_min:   session.assessment&.time_limit_min,
+          status:           session.status,
+          end_reason:       session.end_reason,
+          created_at:       session.created_at,
+          started_at:       session.started_at,
+          ended_at:         session.ended_at,
+          duration_seconds: session.duration_seconds,
+          has_cv:           session.cv.attached? || session.cv_text.present?,
+          has_report:       session.portfolio.present?
+        }
+      end
+
       def session_json(session)
         {
           id:               session.id,
@@ -251,6 +295,7 @@ module Api
           tenant_id:        session.tenant_id,
           candidate_id:     session.candidate_id,
           candidate_name:   session.candidate_name,
+          candidate_email:  session.candidate_email,
           invite_token:     session.invite_token,
           invite_url:       session.invite_url,
           status:           session.status,
